@@ -62,6 +62,7 @@
 # Version 1.5 by rojobull
 #
 # Bug fix - getops line Was missing a colon after the S optin which would ignor the source name provided.
+# Bug fix - adjust WQL_Constructor function so that spaces are not used as a delimiter.
 # Improvement. Changed the date option to convert time into UTC instead of specifying an offset
 # Added option to use a credentials file instead of passing 
 #
@@ -286,9 +287,9 @@ function WQL_Constructor
   then
   	local WS_WQL=" ( "
   	INDEX=0
-	IFS=', ' read -a WS_ARRAY <<< "$WS"
+	IFS=',' read -a WS_ARRAY <<< "$WS"
 
-	for WS_ELEMENT in ${WS_ARRAY[@]}
+	for WS_ELEMENT in "${WS_ARRAY[@]}";
         	do
        	 		((INDEX++))
 			if [[ $WS_TYPE == "like" ]]
