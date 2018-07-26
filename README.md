@@ -29,3 +29,9 @@ Version 1.4
 
 Bug fix .. error in script when -c or -w wasn't set 
 
+
+Version 1.5 by rojobull
+
+Bug fix - getops line Was missing a colon after the S optin which would ignor the source name provided.
+Improvement. Changed the date option to convert time into UTC instead of specifying an offset
+Added option to use a credentials file instead of passing
