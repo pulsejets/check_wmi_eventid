@@ -249,19 +249,16 @@ do
 done
 
 ## check arguments
-echo $CREDS "-" $SOURCENAME
 if [[ -z $CREDS ]]
 then
 	if [[ -z $HOST ]] || [[ -z $UNAME ]] || [[ -z $PASSWD ]] || [[ -z $LOGFILE ]] || [[ -z $EVENTTYPE ]]
 	then
-		echo "got here"
      		usage
      		exit ${E_CRITICAL}
 	fi
 else
         if [[ -z $HOST ]] || [[ -z $LOGFILE ]] || [[ -z $EVENTTYPE ]]
         then
-		echo "got here too"
                 usage
                 exit ${E_CRITICAL}
         fi
@@ -275,7 +272,6 @@ else
 		exit ${E_CRITICAL}
 	fi
 fi
-#echo "got here"
 
 
 TMPFILE=$TMPDIR/$RANDOM$RANDOM".wmi"
