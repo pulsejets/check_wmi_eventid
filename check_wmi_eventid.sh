@@ -63,6 +63,7 @@
 #
 # Bug fix - getops line Was missing a colon after the S optin which would ignor the source name provided.
 # Bug fix - adjust WQL_Constructor function so that spaces are not used as a delimiter.
+# Bug fix - changed $USER variable to $UNAME. $USER is a system variable and will always be set.
 # Improvement. Changed the date option to convert time into UTC instead of specifying an offset
 # Added option to use a credentials file instead of passing 
 #
