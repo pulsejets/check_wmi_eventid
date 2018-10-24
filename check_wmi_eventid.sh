@@ -58,7 +58,17 @@
 # Bug fix .. error in script when -c or -w wasnt set
 #
 #############################################################################
-VERSION=1.4
+#
+# Version 1.5 by rojobull
+#
+# Bug fix - getops line Was missing a colon after the S optin which would ignor the source name provided.
+# Bug fix - adjust WQL_Constructor function so that spaces are not used as a delimiter.
+# Bug fix - changed $USER variable to $UNAME. $USER is a system variable and will always be set.
+# Improvement. Changed the date option to convert time into UTC instead of specifying an offset
+# Added option to use a credentials file instead of passing 
+#
+#############################################################################
+VERSION=1.5
 
 #echo $* >> /tmp/event
 
@@ -148,6 +158,7 @@ OPTIONS:
    -H	   Host/Ip
    -u      Domain/user
    -p      password
+   -f      path to credentials file instead. user and password ignored if set. First line Domain\user, second line password
    -l      Name of the log eg "System" or "Application" or any other Event log as shown in the Windows "Event Viewer".
    -t      Eventtype: # 1=error , 2=warning , 3=Information,4=Security Audit Success,5=Security Audit Failure. Multiple Eventypes  possible with , separation
    -e 	   Eventid, Multiple Eventids possible with , separation
@@ -166,7 +177,7 @@ EOF
 }
 
 
-while getopts "hH:u:p:l:t:e:s:Sw:c:m:W:C:O:U:dv" OPTION
+while getopts ":hH:u:p:f:l:t:e:s:S:m:w:c:dW:C:O:U:v" OPTION;
 do
      case $OPTION in
          h)
@@ -177,67 +188,61 @@ do
              HOST=$OPTARG
              ;;
          u)
-             USER=$OPTARG
+             UNAME=$OPTARG
              ;;
          p)
              PASSWD=$OPTARG
              ;;
+         f)
+             CREDS=$OPTARG
+             ;;
          l)
              LOGFILE=$OPTARG
              ;;
-	 	 t)
+	 t)
              EVENTTYPE=$OPTARG
              ;;
-	 	 e)
+	 e)
              EVENTID=$OPTARG
              ;;
- 	  	 s)
+ 	 s)
              STRING=$OPTARG
              ;;
-		 S) 
-	         SOURCENAME=$OPTARG
-	     	 ;;
-
-	 	 m)
+	 S) 
+	     SOURCENAME=$OPTARG
+	     ;;
+	 m)
              MIN=$OPTARG
              ;;
-
-	     w)
+	 w)
              WARNING=$OPTARG
              ;;
-  	     c)
+  	 c)
              CRITICAL=$OPTARG
              ;;
-
-	     d)
-	         DEBUG=1
-		     ;;
-  
-  		 W)
+	 d)
+	     DEBUG=1
+	     ;;
+     	 W)
              ##custom Warning string
-	    	 CUSTOM_EXIT_STR[$E_WARNING]=$OPTARG
+	     CUSTOM_EXIT_STR[$E_WARNING]=$OPTARG
              ;;
-
-		 C)
+	 C)
 	     ##custom critical string
              CUSTOM_EXIT_STR[$E_CRITICAL]=$OPTARG 
              ;;
-	
-	 	 O)
-            
-	    	 CUSTOM_EXIT_STR[$E_SUCCESS]=$OPTARG
+	 O)
+	     ##custom ok string
+	     CUSTOM_EXIT_STR[$E_SUCCESS]=$OPTARG
              ;;
-
-	 	 U)
-
+	 U)
+	     ##custom unknown string
              CUSTOM_EXIT_STR[$E_UNKNOWN]=$OPTARG
              ;;
-
          v)
 	     echo "Version : $VERSION"
 	     exit
 	     ;;
-
 	 ?)
              usage
              exit
@@ -246,17 +251,33 @@ do
 done
 
 ## check arguments
-
-if [[ -z $HOST ]] || [[ -z $USER ]] || [[ -z $PASSWD ]] || [[ -z $LOGFILE ]] || [[ -z $EVENTTYPE ]]
+if [[ -z $CREDS ]]
 then
-     usage
-     exit ${E_CRITICAL}
+	if [[ -z $HOST ]] || [[ -z $UNAME ]] || [[ -z $PASSWD ]] || [[ -z $LOGFILE ]] || [[ -z $EVENTTYPE ]]
+	then
+     		usage
+     		exit ${E_CRITICAL}
+	fi
+else
+        if [[ -z $HOST ]] || [[ -z $LOGFILE ]] || [[ -z $EVENTTYPE ]]
+        then
+                usage
+                exit ${E_CRITICAL}
+        fi
+        #using cred file so set UNAME and PASSWD
+        if [[ -e $CREDS ]]
+	then
+		UNAME=`sed '1!d' $CREDS`
+		PASSWD=`sed '2!d' $CREDS`
+	else
+		echo "Credentials file does not exist"
+		exit ${E_CRITICAL}
+	fi
 fi
 
 
-
 TMPFILE=$TMPDIR/$RANDOM$RANDOM".wmi"
-NOW=`date --date="$MIN min ago" +%Y%m%d%H%M%S".000000+120"`
+NOW=`date -u --date="$MIN min ago" +%Y%m%d%H%M%S".000000-000"`
 
 function WQL_Constructor 
 {
@@ -267,9 +288,9 @@ function WQL_Constructor
   then
   	local WS_WQL=" ( "
   	INDEX=0
-	IFS=', ' read -a WS_ARRAY <<< "$WS"
+	IFS=',' read -a WS_ARRAY <<< "$WS"
 
-	for WS_ELEMENT in ${WS_ARRAY[@]}
+	for WS_ELEMENT in "${WS_ARRAY[@]}";
         	do
        	 		((INDEX++))
 			if [[ $WS_TYPE == "like" ]]
@@ -297,25 +318,25 @@ EXTRA_WQL+=" "$(WQL_Constructor "$EVENTID" "eventcode" "")
 EXTRA_WQL+=" "$(WQL_Constructor "$SOURCENAME" "SourceName" "like")
 EXTRA_WQL+=" "$(WQL_Constructor "$STRING"  "Message" "like")
 EXTRA_WQL+=" "$(WQL_Constructor "$EVENTTYPE"  "EventType" "" )
-echo $ERROR_EVENTTYPE
-echo $EXTRA_WQL
+#echo $ERROR_EVENTTYPE
+#echo $EXTRA_WQL
 
 
 
-WQL='Select EventCode,EventIdentifier,EventType,SourceName from Win32_NTLogEvent where '$EXTRA_WQL'  TimeGenerated > "'$NOW'"'
+WQL='Select EventCode,EventIdentifier,EventType,SourceName from Win32_NTLogEvent where '$EXTRA_WQL' TimeGenerated > "'$NOW'"'
 ##WQL='Select EventCode,EventIdentifier,EventType from Win32_NTLogEvent where logfile="'$LOGFILE'" and eventcode='$EVENTID'  and TimeGenerated > "'$NOW'" '$EXTRA_WQL
-
+echo $WQL
 ## debug
 
 if [ $DEBUG -eq 1 ]; then
 
 
-echo "$WMIC --namespace root/cimv2  -U $USER%$PASSWD //$HOST '--delimiter=\"|\"'  '"$WQL"'"
+echo "$WMIC --namespace root/cimv2  -U $UNAME%$PASSWD --option='client ntlmv2 auth'=Yes //$HOST '--delimiter=\"|\"'  '"$WQL"'"
 
 fi
 
 
-ERROR=$($WMIC --namespace root/cimv2  -U $USER%$PASSWD //$HOST --delimiter="|"   "$WQL" 2>&1> $TMPFILE )
+ERROR=$($WMIC --namespace root/cimv2  -U $UNAME%$PASSWD --option='client ntlmv2 auth'=Yes //$HOST --delimiter="|"   "$WQL" 2>&1> $TMPFILE )
 
 if [ $DEBUG -eq 1 ]; then
 
